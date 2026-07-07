@@ -94,7 +94,8 @@ const parseApiResponse = async (response: Response) => {
 export default function App() {
   // Application State
   const [guide, setGuide] = useState<TravelGuide | null>(null);
-  const [originalGuide, setOriginalGuide] = useState<TravelGuide | null>(null);
+  const [originalGuide, setOriginalGuide] = useState<TravelGuide | null>(null); // English version cache
+  const [hindiGuide, setHindiGuide] = useState<TravelGuide | null>(null);       // Hindi version cache
   const [currentLanguage, setCurrentLanguage] = useState<string>("English");
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -166,6 +167,7 @@ export default function App() {
     setError(null);
     setGuide(null);
     setOriginalGuide(null);
+    setHindiGuide(null);
     const savedLang = currentLanguage; // Preserve language state
     setChatHistory([]);
     setHighlightedGemIndex(null);
@@ -191,35 +193,18 @@ export default function App() {
 
       const endTime = performance.now();
       setGenerationTimeMs(Math.round(endTime - startTime));
-      setOriginalGuide(data);
 
-      let finalGuide = data;
       if (savedLang === "Hindi") {
-        try {
-          const transResponse = await fetch("/api/translate", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              guide: data,
-              targetLanguage: "Hindi",
-            }),
-          });
-          const transData = await parseApiResponse(transResponse);
-          if (transResponse.ok) {
-            finalGuide = transData;
-          }
-        } catch (transErr) {
-          console.error("Auto-translation failed:", transErr);
-        }
+        setHindiGuide(data);
+      } else {
+        setOriginalGuide(data);
       }
 
-      setGuide(finalGuide);
+      setGuide(data);
 
       // Initialize the Local Companion Chat with a personalized greeting in correct language
       const greetingText = getGreetingText(
-        finalGuide.destination,
+        data.destination,
         params.travelStyle,
         params.budget,
         params.interests,
@@ -311,31 +296,54 @@ export default function App() {
       return;
     }
 
-    if (lang === "English") {
-      if (originalGuide) {
-        setGuide(originalGuide);
-        setCurrentLanguage("English");
-        setChatHistory((prev) => {
-          return prev.map((msg) => {
-            if (msg.id.startsWith("greeting-")) {
-              return {
-                ...msg,
-                text: getGreetingText(
-                  originalGuide.destination,
-                  activeParams?.travelStyle || "Solo",
-                  activeParams?.budget || "5000",
-                  activeParams?.interests || [],
-                  "English"
-                ),
-              };
-            }
-            return msg;
-          });
+    // Check caches first
+    if (lang === "English" && originalGuide) {
+      setGuide(originalGuide);
+      setCurrentLanguage("English");
+      setChatHistory((prev) => {
+        return prev.map((msg) => {
+          if (msg.id.startsWith("greeting-")) {
+            return {
+              ...msg,
+              text: getGreetingText(
+                originalGuide.destination,
+                activeParams?.travelStyle || "Solo",
+                activeParams?.budget || "5000",
+                activeParams?.interests || [],
+                "English"
+              ),
+            };
+          }
+          return msg;
         });
-      }
+      });
       return;
     }
 
+    if (lang === "Hindi" && hindiGuide) {
+      setGuide(hindiGuide);
+      setCurrentLanguage("Hindi");
+      setChatHistory((prev) => {
+        return prev.map((msg) => {
+          if (msg.id.startsWith("greeting-")) {
+            return {
+              ...msg,
+              text: getGreetingText(
+                hindiGuide.destination,
+                activeParams?.travelStyle || "Solo",
+                activeParams?.budget || "5000",
+                activeParams?.interests || [],
+                "Hindi"
+              ),
+            };
+          }
+          return msg;
+        });
+      });
+      return;
+    }
+
+    // Cache miss: dynamically perform translation
     setIsTranslating(true);
     try {
       const response = await fetch("/api/translate", {
@@ -344,7 +352,7 @@ export default function App() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          guide: originalGuide || guide,
+          guide: guide,
           targetLanguage: lang,
         }),
       });
@@ -353,6 +361,13 @@ export default function App() {
 
       if (!response.ok) {
         throw new Error(translatedData.error || "Failed to translate guide.");
+      }
+
+      // Save into cache
+      if (lang === "Hindi") {
+        setHindiGuide(translatedData);
+      } else if (lang === "English") {
+        setOriginalGuide(translatedData);
       }
 
       setGuide(translatedData);

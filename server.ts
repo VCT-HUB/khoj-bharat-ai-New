@@ -400,11 +400,6 @@ Keep the structural keys of the JSON exactly in English as defined by the respon
     // Cache the successfully generated guide
     setCachedGuide(cacheKey, data);
 
-    return res.json(data);�के अलावा, फ्रांस या पेरिस जैसे अंतर्राष्ट्रीय गंतव्यों की यात्रा ₹22,500 जैसी सामान्य बजट सीमाओं के भीतर संभव नहीं है! कृपया कोई भारतीय गंतव्य दर्ज करें (जैसे, वाराणसी, मुन्नार, हम्पी, जयपुर, गोवा, उदयपुर)।"
-        : "Khoj Bharat Ai is exclusively designed to curate beautiful and immersive experiences within India. Additionally, international destinations like France, Paris, or other overseas places cannot be accomplished within standard budget limits like ₹22,500 INR! Please enter an Indian destination (e.g., Varanasi, Munnar, Hampi, Jaipur, Goa, Udaipur).";
-      return res.status(400).json({ error: errorMsg });
-    }
-
     return res.json(data);
   } catch (error: any) {
     console.error("Gemini call failed. Checking for fallback...", error);
